@@ -1,0 +1,6 @@
+node_modules/
+twittur.db
+uploads/
+dist/
+.env
+*.log
