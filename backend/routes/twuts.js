@@ -80,6 +80,19 @@ router.get('/:id/replies', (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+router.delete('/:id', authMiddleware, (req, res) => {
+  try {
+    const twutId = parseInt(req.params.id);
+    const twut = plain(prepare('SELECT * FROM twuts WHERE id = ?').get(twutId));
+    if (!twut) return res.status(404).json({ error: 'Twut not found' });
+    if (twut.user_id !== req.user.userId) return res.status(403).json({ error: 'Not your twut' });
+    prepare('DELETE FROM likes WHERE twut_id = ?').run(twutId);
+    prepare('DELETE FROM retwuts WHERE twut_id = ?').run(twutId);
+    prepare('DELETE FROM twuts WHERE id = ?').run(twutId);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 router.post('/:id/reply', authMiddleware, (req, res) => {
   try {
     const twutId = parseInt(req.params.id);

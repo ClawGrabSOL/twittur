@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { likeTwut, getReplies, postReply, retwutTwut } from '../api';
+import { likeTwut, getReplies, postReply, retwutTwut, deleteTwut } from '../api';
 
 function formatTime(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -45,6 +45,7 @@ export default function TwutCard({ twut, currentUser, onMentionClick }) {
   const [likeAnimating, setLikeAnimating] = useState(false);
   const [retwuted, setRetwuted] = useState(twut.retwuted);
   const [retwutCount, setRetwutCount] = useState(twut.retwut_count);
+  const [deleted, setDeleted] = useState(false);
   const [showReplies, setShowReplies] = useState(false);
   const [replies, setReplies] = useState([]);
   const [replyText, setReplyText] = useState('');
@@ -89,6 +90,15 @@ export default function TwutCard({ twut, currentUser, onMentionClick }) {
   }
 
   const displayName = twut.display_name || twut.username;
+  const isOwn = currentUser && currentUser.username === twut.username;
+
+  async function handleDelete() {
+    if (!window.confirm('Deleet this twut?')) return;
+    const data = await deleteTwut(twut.id);
+    if (data.success) setDeleted(true);
+  }
+
+  if (deleted) return null;
 
   return (
     <div className="twut-card">
@@ -132,6 +142,11 @@ export default function TwutCard({ twut, currentUser, onMentionClick }) {
           {likeCount > 0 && <span>{likeCount}</span>}
         </button>
 
+        {isOwn && (
+          <button className="action-btn" onClick={handleDelete} style={{ marginLeft: 'auto', color: 'var(--red)' }} title="Deleet">
+            🗑️
+          </button>
+        )}
         <button className={`action-btn ${retwuted ? 'retwuted' : ''}`} onClick={handleRetwut} disabled={!currentUser} title={currentUser ? '' : 'Log inn to retwut'}>
           <span>🔁</span>
           {retwutCount > 0 && <span>{retwutCount}</span>}

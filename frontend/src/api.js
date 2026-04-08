@@ -103,6 +103,14 @@ export async function updateProfile(data) {
   return res.json();
 }
 
+export async function deleteTwut(id) {
+  const res = await fetch(`${BASE}/twuts/${id}`, {
+    method: 'DELETE',
+    headers: { ...authHeaders() },
+  });
+  return res.json();
+}
+
 export async function retwutTwut(id) {
   const res = await fetch(`${BASE}/twuts/${id}/retwut`, {
     method: 'POST',
