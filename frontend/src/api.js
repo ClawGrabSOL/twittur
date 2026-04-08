@@ -1,4 +1,6 @@
-const BASE = import.meta.env.VITE_API_URL || '/api';
+const BASE = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+  ? 'https://twittur-backend-production.up.railway.app/api'
+  : '/api';
 
 function getToken() {
   return localStorage.getItem('twittur_token');
