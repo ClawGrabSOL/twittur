@@ -60,15 +60,9 @@ export default function EditProfile({ currentUser, onBack, onSaved }) {
 
     let finalPfpUrl = pfpUrl;
 
-    // Upload file if one was selected
-    if (pfpFile) {
-      const uploadResult = await uploadPfp(pfpFile);
-      if (uploadResult.error) {
-        setError('Cud not upload image: ' + uploadResult.error);
-        setSaving(false);
-        return;
-      }
-      finalPfpUrl = uploadResult.url;
+    // Use the preview (already compressed base64) directly
+    if (pfpFile && pfpPreview) {
+      finalPfpUrl = pfpPreview;
     }
 
     const data = await updateProfile({
