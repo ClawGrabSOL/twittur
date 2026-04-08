@@ -1,73 +1,75 @@
-// Uses Node.js built-in sqlite (v22.5+) — no npm package needed, no compilation
-const { DatabaseSync } = require('node:sqlite');
-const path = require('path');
-const fs = require('fs');
+const { createClient } = require('@libsql/client');
 
-// On Render free tier, use /tmp (ephemeral but works)
-// For persistent storage upgrade to paid tier
-let dbPath;
-if (process.env.RENDER) {
-  dbPath = '/tmp/twittur.db';
-} else {
-  dbPath = path.join(__dirname, 'twittur.db');
+const db = createClient({
+  url: process.env.TURSO_URL || 'libsql://twittur-clawgrabsol.aws-us-east-1.turso.io',
+  authToken: process.env.TURSO_TOKEN,
+});
+
+async function init() {
+  await db.executeMultiple(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      display_name TEXT DEFAULT NULL,
+      bio TEXT DEFAULT NULL,
+      pfp_url TEXT DEFAULT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS twuts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      content TEXT NOT NULL,
+      parent_id INTEGER DEFAULT NULL,
+      retwut_of_id INTEGER DEFAULT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS likes (
+      user_id INTEGER NOT NULL,
+      twut_id INTEGER NOT NULL,
+      PRIMARY KEY(user_id, twut_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS follows (
+      follower_id INTEGER NOT NULL,
+      following_id INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY(follower_id, following_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS retwuts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      twut_id INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, twut_id)
+    );
+  `);
+  console.log('DB initialized');
 }
-console.log('DB path:', dbPath);
-const db = new DatabaseSync(dbPath);
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    display_name TEXT DEFAULT NULL,
-    bio TEXT DEFAULT NULL,
-    pfp_url TEXT DEFAULT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+// Helper: run a query and return rows as plain objects
+async function query(sql, args = []) {
+  const result = await db.execute({ sql, args });
+  return result.rows.map(row => {
+    const obj = {};
+    result.columns.forEach((col, i) => { obj[col] = row[i]; });
+    return obj;
+  });
+}
 
-  CREATE TABLE IF NOT EXISTS twuts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    content TEXT NOT NULL,
-    parent_id INTEGER DEFAULT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(user_id) REFERENCES users(id)
-  );
+// Helper: get first row or null
+async function get(sql, args = []) {
+  const rows = await query(sql, args);
+  return rows[0] || null;
+}
 
-  CREATE TABLE IF NOT EXISTS likes (
-    user_id INTEGER NOT NULL,
-    twut_id INTEGER NOT NULL,
-    PRIMARY KEY(user_id, twut_id)
-  );
-`);
+// Helper: run insert/update/delete
+async function run(sql, args = []) {
+  const result = await db.execute({ sql, args });
+  return { lastInsertRowid: Number(result.lastInsertRowid), changes: result.rowsAffected };
+}
 
-// Migrations
-try { db.exec('ALTER TABLE users ADD COLUMN display_name TEXT DEFAULT NULL'); } catch {}
-try { db.exec('ALTER TABLE users ADD COLUMN bio TEXT DEFAULT NULL'); } catch {}
-try { db.exec('ALTER TABLE users ADD COLUMN pfp_url TEXT DEFAULT NULL'); } catch {}
-try { db.exec('ALTER TABLE twuts ADD COLUMN retwut_of_id INTEGER DEFAULT NULL'); } catch {}
-
-// Follows table
-db.exec(`
-  CREATE TABLE IF NOT EXISTS follows (
-    follower_id INTEGER NOT NULL,
-    following_id INTEGER NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY(follower_id, following_id)
-  );
-`);
-
-// Retwuts table
-db.exec(`
-  CREATE TABLE IF NOT EXISTS retwuts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    twut_id INTEGER NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(user_id, twut_id),
-    FOREIGN KEY(user_id) REFERENCES users(id),
-    FOREIGN KEY(twut_id) REFERENCES twuts(id)
-  );
-`);
-
-module.exports = db;
+module.exports = { init, query, get, run };
