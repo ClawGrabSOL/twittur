@@ -28,10 +28,27 @@ export default function EditProfile({ currentUser, onBack, onSaved }) {
   function handleFileChange(e) {
     const file = e.target.files[0];
     if (!file) return;
-    setPfpFile(file);
-    // Show preview immediately
+    // Resize to max 200x200 before uploading
     const reader = new FileReader();
-    reader.onload = ev => setPfpPreview(ev.target.result);
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX = 200;
+        let w = img.width, h = img.height;
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else { w = Math.round(w * MAX / h); h = MAX; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const compressed = canvas.toDataURL('image/jpeg', 0.8);
+        setPfpPreview(compressed);
+        // Convert data URL back to File for upload
+        fetch(compressed).then(r => r.blob()).then(blob => {
+          setPfpFile(new File([blob], 'pfp.jpg', { type: 'image/jpeg' }));
+        });
+      };
+      img.src = ev.target.result;
+    };
     reader.readAsDataURL(file);
   }
 
