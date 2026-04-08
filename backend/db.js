@@ -1,8 +1,17 @@
 // Uses Node.js built-in sqlite (v22.5+) — no npm package needed, no compilation
 const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
+const fs = require('fs');
 
-const dbPath = process.env.RENDER ? '/data/twittur.db' : path.join(__dirname, 'twittur.db');
+let dbPath;
+if (process.env.RENDER) {
+  // Ensure /data exists
+  if (!fs.existsSync('/data')) fs.mkdirSync('/data', { recursive: true });
+  dbPath = '/data/twittur.db';
+} else {
+  dbPath = path.join(__dirname, 'twittur.db');
+}
+console.log('DB path:', dbPath);
 const db = new DatabaseSync(dbPath);
 
 db.exec(`
