@@ -3,11 +3,11 @@ const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
 const fs = require('fs');
 
+// On Render free tier, use /tmp (ephemeral but works)
+// For persistent storage upgrade to paid tier
 let dbPath;
 if (process.env.RENDER) {
-  // Ensure /data exists
-  if (!fs.existsSync('/data')) fs.mkdirSync('/data', { recursive: true });
-  dbPath = '/data/twittur.db';
+  dbPath = '/tmp/twittur.db';
 } else {
   dbPath = path.join(__dirname, 'twittur.db');
 }
