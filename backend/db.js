@@ -1,75 +1,59 @@
-const { createClient } = require('@libsql/client');
+const { DatabaseSync } = require('node:sqlite');
+const path = require('path');
+const fs = require('fs');
 
-const db = createClient({
-  url: process.env.TURSO_URL || 'libsql://twittur-clawgrabsol.aws-us-east-1.turso.io',
-  authToken: process.env.TURSO_TOKEN,
-});
+// Use /app/data on Railway, local dir otherwise
+const dataDir = process.env.RAILWAY_VOLUME_MOUNT_PATH || __dirname;
+if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+const dbPath = path.join(dataDir, 'twittur.db');
+console.log('DB path:', dbPath);
 
-async function init() {
-  await db.executeMultiple(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
-      display_name TEXT DEFAULT NULL,
-      bio TEXT DEFAULT NULL,
-      pfp_url TEXT DEFAULT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
+const db = new DatabaseSync(dbPath);
 
-    CREATE TABLE IF NOT EXISTS twuts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      content TEXT NOT NULL,
-      parent_id INTEGER DEFAULT NULL,
-      retwut_of_id INTEGER DEFAULT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
+db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    display_name TEXT DEFAULT NULL,
+    bio TEXT DEFAULT NULL,
+    pfp_url TEXT DEFAULT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS twuts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    parent_id INTEGER DEFAULT NULL,
+    retwut_of_id INTEGER DEFAULT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS likes (
+    user_id INTEGER NOT NULL,
+    twut_id INTEGER NOT NULL,
+    PRIMARY KEY(user_id, twut_id)
+  );
+  CREATE TABLE IF NOT EXISTS follows (
+    follower_id INTEGER NOT NULL,
+    following_id INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(follower_id, following_id)
+  );
+  CREATE TABLE IF NOT EXISTS retwuts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    twut_id INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, twut_id)
+  );
+`);
 
-    CREATE TABLE IF NOT EXISTS likes (
-      user_id INTEGER NOT NULL,
-      twut_id INTEGER NOT NULL,
-      PRIMARY KEY(user_id, twut_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS follows (
-      follower_id INTEGER NOT NULL,
-      following_id INTEGER NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY(follower_id, following_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS retwuts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      twut_id INTEGER NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(user_id, twut_id)
-    );
-  `);
-  console.log('DB initialized');
+function plain(obj) {
+  if (!obj) return obj;
+  return Object.assign({}, obj);
 }
 
-// Helper: run a query and return rows as plain objects
-async function query(sql, args = []) {
-  const result = await db.execute({ sql, args });
-  return result.rows.map(row => {
-    const obj = {};
-    result.columns.forEach((col, i) => { obj[col] = row[i]; });
-    return obj;
-  });
-}
-
-// Helper: get first row or null
-async function get(sql, args = []) {
-  const rows = await query(sql, args);
-  return rows[0] || null;
-}
-
-// Helper: run insert/update/delete
-async function run(sql, args = []) {
-  const result = await db.execute({ sql, args });
-  return { lastInsertRowid: Number(result.lastInsertRowid), changes: result.rowsAffected };
-}
-
-module.exports = { init, query, get, run };
+module.exports = {
+  prepare: (sql) => db.prepare(sql),
+  plain,
+};
