@@ -23,7 +23,7 @@ export default function Sidebar({ user, page, onNavigate, onLogout }) {
   return (
     <div className="sidebar">
       <div className="sidebar-logo">
-        <span className="z-mark" onClick={() => onNavigate('home')}>Z</span>
+        <img src="/logo.jpg" alt="Z" onClick={() => onNavigate('home')} style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover', cursor: 'pointer', padding: 4 }} />
       </div>
 
       <nav className="sidebar-nav">

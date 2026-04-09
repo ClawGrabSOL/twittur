@@ -23,7 +23,7 @@ export default function AuthForm({ onAuth }) {
     <div className="auth-wrap">
       <div className="auth-card">
         <div className="auth-logo">
-          <div className="z-mark">Z</div>
+          <img src="/logo.jpg" alt="Z" style={{ width: 56, height: 56, borderRadius: 12, objectFit: 'cover', margin: '0 auto', display: 'block' }} />
           <p>See what's happening in your world.</p>
         </div>
 
