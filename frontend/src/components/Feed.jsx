@@ -53,7 +53,7 @@ export default function Feed({ currentUser, onNavigateProfile }) {
     <>
       <div className="feed-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span>Home</span>
-        {currentUser?.username === 'z' && (
+        {(currentUser?.username === 'z' || currentUser?.username === 'Z') && (
           <button
             onClick={async () => {
               if (!window.confirm('Wipe all posts?')) return;
