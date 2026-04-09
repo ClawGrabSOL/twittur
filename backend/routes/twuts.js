@@ -19,12 +19,21 @@ function formatTwut(t, currentUserId) {
   const retwutCount = plain(prepare('SELECT COUNT(*) as c FROM retwuts WHERE twut_id = ?').get(t.id)).c;
   const liked = currentUserId ? !!plain(prepare('SELECT 1 FROM likes WHERE user_id = ? AND twut_id = ?').get(currentUserId, t.id)) : false;
   const retwuted = currentUserId ? !!plain(prepare('SELECT 1 FROM retwuts WHERE user_id = ? AND twut_id = ?').get(currentUserId, t.id)) : false;
+  const bookmarked = currentUserId ? !!plain(prepare('SELECT 1 FROM bookmarks WHERE user_id = ? AND twut_id = ?').get(currentUserId, t.id)) : false;
   return {
     id: t.id, content: t.content, parent_id: t.parent_id, retwut_of_id: t.retwut_of_id || null,
     created_at: t.created_at, username: user?.username || 'unknown',
     display_name: user?.display_name || null, pfp_url: user?.pfp_url || null,
-    like_count: likeCount, reply_count: replyCount, retwut_count: retwutCount, liked, retwuted,
+    like_count: likeCount, reply_count: replyCount, retwut_count: retwutCount,
+    liked, retwuted, bookmarked,
   };
+}
+
+function addNotification(userId, actorId, type, twutId) {
+  if (userId === actorId) return; // don't notify yourself
+  try {
+    prepare('INSERT INTO notifications (user_id, actor_id, type, twut_id) VALUES (?, ?, ?, ?)').run(userId, actorId, type, twutId || null);
+  } catch(e) {}
 }
 
 router.get('/', (req, res) => {
@@ -51,9 +60,13 @@ router.post('/', authMiddleware, (req, res) => {
 router.post('/:id/like', authMiddleware, (req, res) => {
   try {
     const twutId = parseInt(req.params.id);
+    const twut = plain(prepare('SELECT * FROM twuts WHERE id = ?').get(twutId));
     const existing = plain(prepare('SELECT 1 FROM likes WHERE user_id = ? AND twut_id = ?').get(req.user.userId, twutId));
     if (existing) prepare('DELETE FROM likes WHERE user_id = ? AND twut_id = ?').run(req.user.userId, twutId);
-    else prepare('INSERT INTO likes (user_id, twut_id) VALUES (?, ?)').run(req.user.userId, twutId);
+    else {
+      prepare('INSERT INTO likes (user_id, twut_id) VALUES (?, ?)').run(req.user.userId, twutId);
+      if (twut) addNotification(twut.user_id, req.user.userId, 'like', twutId);
+    }
     const likeCount = plain(prepare('SELECT COUNT(*) as c FROM likes WHERE twut_id = ?').get(twutId)).c;
     res.json({ liked: !existing, like_count: likeCount });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -62,11 +75,36 @@ router.post('/:id/like', authMiddleware, (req, res) => {
 router.post('/:id/retwut', authMiddleware, (req, res) => {
   try {
     const twutId = parseInt(req.params.id);
+    const twut = plain(prepare('SELECT * FROM twuts WHERE id = ?').get(twutId));
     const existing = plain(prepare('SELECT 1 FROM retwuts WHERE user_id = ? AND twut_id = ?').get(req.user.userId, twutId));
     if (existing) prepare('DELETE FROM retwuts WHERE user_id = ? AND twut_id = ?').run(req.user.userId, twutId);
-    else prepare('INSERT INTO retwuts (user_id, twut_id) VALUES (?, ?)').run(req.user.userId, twutId);
+    else {
+      prepare('INSERT INTO retwuts (user_id, twut_id) VALUES (?, ?)').run(req.user.userId, twutId);
+      if (twut) addNotification(twut.user_id, req.user.userId, 'repost', twutId);
+    }
     const retwutCount = plain(prepare('SELECT COUNT(*) as c FROM retwuts WHERE twut_id = ?').get(twutId)).c;
     res.json({ retwuted: !existing, retwut_count: retwutCount });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/:id/bookmark', authMiddleware, (req, res) => {
+  try {
+    const twutId = parseInt(req.params.id);
+    const existing = plain(prepare('SELECT 1 FROM bookmarks WHERE user_id = ? AND twut_id = ?').get(req.user.userId, twutId));
+    if (existing) prepare('DELETE FROM bookmarks WHERE user_id = ? AND twut_id = ?').run(req.user.userId, twutId);
+    else prepare('INSERT INTO bookmarks (user_id, twut_id) VALUES (?, ?)').run(req.user.userId, twutId);
+    res.json({ bookmarked: !existing });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/bookmarks', authMiddleware, (req, res) => {
+  try {
+    const rows = prepare('SELECT twut_id FROM bookmarks WHERE user_id = ? ORDER BY created_at DESC').all(req.user.userId);
+    const twuts = rows.map(r => {
+      const t = plain(prepare('SELECT * FROM twuts WHERE id = ?').get(r.twut_id));
+      return t ? formatTwut(t, req.user.userId) : null;
+    }).filter(Boolean);
+    res.json(twuts);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -80,27 +118,31 @@ router.get('/:id/replies', (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-router.delete('/:id', authMiddleware, (req, res) => {
-  try {
-    const twutId = parseInt(req.params.id);
-    const twut = plain(prepare('SELECT * FROM twuts WHERE id = ?').get(twutId));
-    if (!twut) return res.status(404).json({ error: 'Twut not found' });
-    if (twut.user_id !== req.user.userId) return res.status(403).json({ error: 'Not your twut' });
-    prepare('DELETE FROM likes WHERE twut_id = ?').run(twutId);
-    prepare('DELETE FROM retwuts WHERE twut_id = ?').run(twutId);
-    prepare('DELETE FROM twuts WHERE id = ?').run(twutId);
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
 router.post('/:id/reply', authMiddleware, (req, res) => {
   try {
     const twutId = parseInt(req.params.id);
     const { content } = req.body;
     if (!content?.trim()) return res.status(400).json({ error: 'Content required' });
+    const twut = plain(prepare('SELECT * FROM twuts WHERE id = ?').get(twutId));
     const result = prepare('INSERT INTO twuts (user_id, content, parent_id) VALUES (?, ?, ?)').run(req.user.userId, content.trim(), twutId);
-    const twut = plain(prepare('SELECT * FROM twuts WHERE id = ?').get(result.lastInsertRowid));
-    res.json(formatTwut(twut, req.user.userId));
+    if (twut) addNotification(twut.user_id, req.user.userId, 'reply', twutId);
+    const newTwut = plain(prepare('SELECT * FROM twuts WHERE id = ?').get(result.lastInsertRowid));
+    res.json(formatTwut(newTwut, req.user.userId));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/:id', authMiddleware, (req, res) => {
+  try {
+    const twutId = parseInt(req.params.id);
+    const twut = plain(prepare('SELECT * FROM twuts WHERE id = ?').get(twutId));
+    if (!twut) return res.status(404).json({ error: 'Post not found' });
+    if (twut.user_id !== req.user.userId) return res.status(403).json({ error: 'Not your post' });
+    prepare('DELETE FROM likes WHERE twut_id = ?').run(twutId);
+    prepare('DELETE FROM retwuts WHERE twut_id = ?').run(twutId);
+    prepare('DELETE FROM bookmarks WHERE twut_id = ?').run(twutId);
+    prepare('DELETE FROM notifications WHERE twut_id = ?').run(twutId);
+    prepare('DELETE FROM twuts WHERE id = ?').run(twutId);
+    res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

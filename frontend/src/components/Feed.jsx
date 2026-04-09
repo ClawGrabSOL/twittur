@@ -1,53 +1,74 @@
-import React, { useEffect, useState } from 'react';
-import { getFeed } from '../api';
-import TwutCard from './TwutCard';
-import ComposeTwut from './ComposeTwut';
-import Sidebar from './Sidebar';
+import React, { useState, useEffect } from 'react';
+import { getFeed, postTwut } from '../api';
+import PostCard from './PostCard';
 
-export default function Feed({ currentUser, onNavigateProfile, onEditProfile }) {
-  const [twuts, setTwuts] = useState([]);
+export default function Feed({ currentUser, onNavigateProfile }) {
+  const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [content, setContent] = useState('');
+  const [posting, setPosting] = useState(false);
 
   useEffect(() => {
-    loadFeed();
+    getFeed().then(data => { setPosts(Array.isArray(data) ? data : []); setLoading(false); });
   }, []);
 
-  async function loadFeed() {
-    setLoading(true);
-    const data = await getFeed();
-    setTwuts(Array.isArray(data) ? data : []);
-    setLoading(false);
+  async function handlePost() {
+    if (!content.trim() || !currentUser) return;
+    setPosting(true);
+    const res = await postTwut(content.trim());
+    if (!res.error) { setPosts(prev => [res, ...prev]); setContent(''); }
+    setPosting(false);
   }
 
-  function handleNewTwut(twut) {
-    setTwuts(prev => [twut, ...prev]);
-  }
+  const pfp = null;
+  const initial = currentUser?.username?.[0]?.toUpperCase() || '?';
 
   return (
-    <div className="layout-wrap">
-      <Sidebar currentUser={currentUser} onNavigateProfile={onNavigateProfile} onEditProfile={onEditProfile} />
+    <>
+      <div className="feed-header">Home</div>
 
-      <div className="main-col">
-        <ComposeTwut currentUser={currentUser} onNewTwut={handleNewTwut} />
-
-        {loading ? (
-          <div className="feed-loading">Loeding twitts...</div>
-        ) : twuts.length === 0 ? (
-          <div className="feed-empty">
-            <img src="/logo.jpg" alt="" style={{ width: 60, height: 60, objectFit: 'contain', display: 'block', margin: '0 auto 12px' }} />
-            <p>No twuts yet. Be the furst to twut sumthing!</p>
-          </div>
-        ) : (
-          twuts.map(twut => (
-            <TwutCard
-              key={twut.id}
-              twut={twut}
-              currentUser={currentUser}
-              onMentionClick={username => onNavigateProfile(username)}
+      {currentUser && (
+        <div className="compose-area">
+          <div className="compose-avatar">{pfp ? <img src={pfp} alt="" /> : initial}</div>
+          <div className="compose-right">
+            <textarea
+              value={content}
+              onChange={e => setContent(e.target.value)}
+              placeholder="What is happening?!"
+              rows={3}
+              maxLength={300}
+              onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) handlePost(); }}
             />
-          ))
-        )}
-      </div>
-    </div>
+            <div className="compose-footer">
+              <span className={`char-count${content.length > 260 ? ' warn' : ''}${content.length > 280 ? ' over' : ''}`}>
+                {content.length}/280
+              </span>
+              <button className="btn-post" onClick={handlePost} disabled={!content.trim() || posting || content.length > 280}>
+                {posting ? '...' : 'Post'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {loading && <div className="feed-loading">Loading...</div>}
+
+      {!loading && posts.length === 0 && (
+        <div className="feed-empty">
+          <div className="big">No posts yet</div>
+          <p>Be the first to post something.</p>
+        </div>
+      )}
+
+      {posts.map(p => (
+        <PostCard
+          key={p.id}
+          post={p}
+          currentUser={currentUser}
+          onNavigateProfile={onNavigateProfile}
+          onDeleted={id => setPosts(prev => prev.filter(x => x.id !== id))}
+        />
+      ))}
+    </>
   );
 }

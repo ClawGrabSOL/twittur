@@ -13,8 +13,9 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/profile', require('./routes/profile'));
 app.use('/api/follows', require('./routes/follows'));
 app.use('/api/upload', require('./routes/upload'));
+app.use('/api/notifications', require('./routes/notifications'));
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`🐦 Twittur backend running on http://localhost:${PORT}`);
+  console.log(`Z backend running on http://localhost:${PORT}`);
 });

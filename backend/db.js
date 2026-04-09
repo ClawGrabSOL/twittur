@@ -2,7 +2,6 @@ const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
 const fs = require('fs');
 
-// Use /app/data on Railway, local dir otherwise
 const dataDir = process.env.RAILWAY_VOLUME_MOUNT_PATH || __dirname;
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 const dbPath = path.join(dataDir, 'twittur.db');
@@ -46,6 +45,21 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id, twut_id)
   );
+  CREATE TABLE IF NOT EXISTS bookmarks (
+    user_id INTEGER NOT NULL,
+    twut_id INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(user_id, twut_id)
+  );
+  CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    actor_id INTEGER NOT NULL,
+    type TEXT NOT NULL,
+    twut_id INTEGER DEFAULT NULL,
+    read INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 function plain(obj) {
@@ -53,7 +67,4 @@ function plain(obj) {
   return Object.assign({}, obj);
 }
 
-module.exports = {
-  prepare: (sql) => db.prepare(sql),
-  plain,
-};
+module.exports = { prepare: (sql) => db.prepare(sql), plain };

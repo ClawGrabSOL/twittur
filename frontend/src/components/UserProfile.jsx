@@ -1,112 +1,102 @@
 import React, { useEffect, useState } from 'react';
-import { getUserProfile, toggleFollow } from '../api';
-import TwutCard from './TwutCard';
-import Sidebar from './Sidebar';
+import { getUserProfile, toggleFollow, getFollowStatus } from '../api';
+import PostCard from './PostCard';
 
-export default function UserProfile({ username, currentUser, onBack, onNavigateProfile, onEditProfile }) {
+function timeAgo(dateStr) {
+  const d = new Date(dateStr + 'Z');
+  return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
+export default function UserProfile({ username, currentUser, onBack, onEditProfile, onNavigateProfile }) {
   const [profile, setProfile] = useState(null);
+  const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [following, setFollowing] = useState(false);
-  const [followerCount, setFollowerCount] = useState(0);
+
+  const isOwn = currentUser?.username === username;
 
   useEffect(() => {
-    loadProfile();
+    setLoading(true);
+    getUserProfile(username).then(data => {
+      setProfile(data.user || null);
+      setPosts(Array.isArray(data.twuts) ? data.twuts : []);
+      setLoading(false);
+    });
+    if (currentUser && !isOwn) {
+      getFollowStatus(username).then(d => setFollowing(d.following));
+    }
   }, [username]);
 
-  async function loadProfile() {
-    setLoading(true);
-    setError('');
-    const data = await getUserProfile(username);
-    if (data.error) setError(data.error);
-    else {
-      setProfile(data);
-      setFollowing(data.is_following || false);
-      setFollowerCount(data.follower_count || 0);
-    }
-    setLoading(false);
-  }
-
-  if (loading) return (
-    <div className="layout-wrap">
-      <Sidebar currentUser={currentUser} onNavigateProfile={onNavigateProfile} onEditProfile={onEditProfile} />
-      <div className="main-col"><div className="feed-loading">Loeding profil...</div></div>
-    </div>
-  );
-
-  if (error) return (
-    <div className="layout-wrap">
-      <Sidebar currentUser={currentUser} onNavigateProfile={onNavigateProfile} onEditProfile={onEditProfile} />
-      <div className="main-col">
-        <button className="back-btn" onClick={onBack}>← Back to feed</button>
-        <div className="error-banner">Cud not find that user 😢</div>
-      </div>
-    </div>
-  );
-
-  const isOwn = currentUser && currentUser.username === profile.username;
-
   async function handleFollow() {
-    if (!currentUser) return;
-    const data = await toggleFollow(profile.username);
-    setFollowing(data.following);
-    setFollowerCount(data.follower_count);
+    const res = await toggleFollow(username);
+    setFollowing(res.following);
   }
+
+  if (loading) return <><div className="feed-header">{username}</div><div className="feed-loading">Loading...</div></>;
+  if (!profile) return <><div className="feed-header">Profile</div><div className="feed-empty"><p>User not found.</p></div></>;
+
+  const displayName = profile.display_name || profile.username;
+  const initial = displayName[0].toUpperCase();
 
   return (
-    <div className="layout-wrap">
-      <Sidebar currentUser={currentUser} onNavigateProfile={onNavigateProfile} onEditProfile={onEditProfile} />
-
-      <div className="main-col">
-        <button className="back-btn" onClick={onBack}>← Back to feed</button>
-
-        <div className="profile-header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, width: '100%' }}>
-            <div className="profile-avatar" style={{ overflow: 'hidden', background: profile.pfp_url ? 'transparent' : 'var(--blue)' }}>
-              {profile.pfp_url ? (
-                <img src={profile.pfp_url} alt="pfp" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  onError={e => { e.target.style.display = 'none'; }} />
-              ) : (
-                profile.username[0].toUpperCase()
-              )}
-            </div>
-            <div style={{ flex: 1 }}>
-              <h2 style={{ fontSize: 20, fontWeight: 800 }}>{profile.display_name || profile.username}</h2>
-              <div style={{ color: 'var(--gray)', fontSize: 14 }}>@{profile.username}</div>
-              <div style={{ color: 'var(--gray)', fontSize: 13, marginTop: 2 }}>
-                <span><b style={{ color: 'var(--text)' }}>{followerCount}</b> folowerz · </span>
-                <span><b style={{ color: 'var(--text)' }}>{profile.following_count}</b> folowing · </span>
-                <span>{profile.twut_count} twuts</span>
-              </div>
-            </div>
-            {isOwn ? (
-              <button className="btn" onClick={onEditProfile}
-                style={{ border: '2px solid var(--blue)', color: 'var(--blue)', background: 'none', flexShrink: 0 }}>
-                Edit Profil
-              </button>
-            ) : currentUser && (
-              <button className="btn" onClick={handleFollow}
-                style={{ background: following ? 'white' : 'var(--blue)', color: following ? 'var(--blue)' : 'white', border: '2px solid var(--blue)', flexShrink: 0 }}>
-                {following ? 'Unfollow' : 'Foloww'}
-              </button>
-            )}
-          </div>
-          {profile.bio && (
-            <p style={{ fontSize: 15, color: 'var(--text)', lineHeight: 1.5, margin: 0 }}>{profile.bio}</p>
-          )}
+    <>
+      <div className="feed-header" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'var(--text)', cursor: 'pointer', padding: '4px 8px', borderRadius: '50%', fontSize: 18 }}>←</button>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>{displayName}</div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 400 }}>{posts.length} posts</div>
         </div>
-
-        {profile.twuts.length === 0 ? (
-          <div className="feed-empty">
-            <img src="/logo.jpg" alt="" style={{ width: 60, objectFit: 'contain', display: 'block', margin: '0 auto 12px' }} />
-            <p>No twuts yet frum this persun</p>
-          </div>
-        ) : (
-          profile.twuts.map(twut => (
-            <TwutCard key={twut.id} twut={twut} currentUser={currentUser} onMentionClick={u => onNavigateProfile(u)} />
-          ))
-        )}
       </div>
-    </div>
+
+      <div className="profile-banner" />
+
+      <div className="profile-info-section">
+        <div className="profile-avatar-row">
+          <div className="profile-avatar-big">
+            {profile.pfp_url ? <img src={profile.pfp_url} alt="" /> : initial}
+          </div>
+          <div style={{ marginTop: 8 }}>
+            {isOwn ? (
+              <button className="btn-outline-white" onClick={onEditProfile}>Edit profile</button>
+            ) : currentUser ? (
+              <button
+                className="btn-outline-white"
+                onClick={handleFollow}
+                style={following ? {} : { background: 'var(--white)', color: 'var(--bg)' }}
+              >
+                {following ? 'Following' : 'Follow'}
+              </button>
+            ) : null}
+          </div>
+        </div>
+        <div className="profile-name">{displayName}</div>
+        <div className="profile-handle">@{profile.username}</div>
+        {profile.bio && <div className="profile-bio">{profile.bio}</div>}
+        <div style={{ fontSize: 14, color: 'var(--muted)', marginTop: 10 }}>
+          📅 Joined {timeAgo(profile.created_at)}
+        </div>
+        <div className="profile-stats">
+          <span className="stat-item"><strong>{profile.following_count || 0}</strong> Following</span>
+          <span className="stat-item"><strong>{profile.followers_count || 0}</strong> Followers</span>
+        </div>
+      </div>
+
+      {posts.length === 0 && (
+        <div className="feed-empty">
+          <div className="big">No posts yet</div>
+          {isOwn && <p>When you post, it'll show up here.</p>}
+        </div>
+      )}
+
+      {posts.map(p => (
+        <PostCard
+          key={p.id}
+          post={p}
+          currentUser={currentUser}
+          onNavigateProfile={onNavigateProfile}
+          onDeleted={id => setPosts(prev => prev.filter(x => x.id !== id))}
+        />
+      ))}
+    </>
   );
 }
