@@ -66,6 +66,18 @@ export default function App() {
             onNavigateProfile={u => navigate('profile', u)}
           />
         )}
+        {page === 'communities' && (
+          <div>
+            <div className="feed-header">Communities</div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 20px', textAlign: 'center' }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>🏘️</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--white)', marginBottom: 8 }}>Communities</div>
+              <div style={{ fontSize: 15, color: 'var(--muted)', maxWidth: 300, lineHeight: 1.6 }}>Connect with people who share your interests. Communities are coming soon to Z.</div>
+              <div style={{ marginTop: 20, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 100, padding: '8px 20px', fontSize: 13, color: 'var(--muted)', fontWeight: 600, letterSpacing: '0.06em' }}>COMING SOON</div>
+            </div>
+          </div>
+        )}
+
         {page === 'edit-profile' && (
           <EditProfile
             currentUser={user}
