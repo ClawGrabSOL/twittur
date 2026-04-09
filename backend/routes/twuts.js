@@ -4,6 +4,10 @@ const { prepare, plain } = require('../db');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'twittur-secret-lol';
+const ADMIN_SECRET = process.env.ADMIN_SECRET || 'z-admin-wipe-2024';
+
+// Migrate: add image_url column if missing
+try { prepare('ALTER TABLE twuts ADD COLUMN image_url TEXT DEFAULT NULL').run(); } catch(e) {}
 
 function authMiddleware(req, res, next) {
   const auth = req.headers.authorization;
@@ -21,7 +25,8 @@ function formatTwut(t, currentUserId) {
   const retwuted = currentUserId ? !!plain(prepare('SELECT 1 FROM retwuts WHERE user_id = ? AND twut_id = ?').get(currentUserId, t.id)) : false;
   const bookmarked = currentUserId ? !!plain(prepare('SELECT 1 FROM bookmarks WHERE user_id = ? AND twut_id = ?').get(currentUserId, t.id)) : false;
   return {
-    id: t.id, content: t.content, parent_id: t.parent_id, retwut_of_id: t.retwut_of_id || null,
+    id: t.id, content: t.content, image_url: t.image_url || null,
+    parent_id: t.parent_id, retwut_of_id: t.retwut_of_id || null,
     created_at: t.created_at, username: user?.username || 'unknown',
     display_name: user?.display_name || null, pfp_url: user?.pfp_url || null,
     like_count: likeCount, reply_count: replyCount, retwut_count: retwutCount,
@@ -48,12 +53,26 @@ router.get('/', (req, res) => {
 
 router.post('/', authMiddleware, (req, res) => {
   try {
-    const { content } = req.body;
-    if (!content?.trim()) return res.status(400).json({ error: 'Content required' });
-    if (content.length > 280) return res.status(400).json({ error: 'Too long!' });
-    const result = prepare('INSERT INTO twuts (user_id, content) VALUES (?, ?)').run(req.user.userId, content.trim());
+    const { content, image_url } = req.body;
+    if (!content?.trim() && !image_url) return res.status(400).json({ error: 'Content required' });
+    if (content && content.length > 280) return res.status(400).json({ error: 'Too long!' });
+    const result = prepare('INSERT INTO twuts (user_id, content, image_url) VALUES (?, ?, ?)').run(req.user.userId, (content || '').trim(), image_url || null);
     const twut = plain(prepare('SELECT * FROM twuts WHERE id = ?').get(result.lastInsertRowid));
     res.json(formatTwut(twut, req.user.userId));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin wipe all posts
+router.delete('/admin/wipe', (req, res) => {
+  try {
+    const { secret } = req.body;
+    if (secret !== ADMIN_SECRET) return res.status(403).json({ error: 'Forbidden' });
+    prepare('DELETE FROM likes').run();
+    prepare('DELETE FROM retwuts').run();
+    prepare('DELETE FROM bookmarks').run();
+    prepare('DELETE FROM notifications').run();
+    prepare('DELETE FROM twuts').run();
+    res.json({ success: true, message: 'All posts wiped' });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

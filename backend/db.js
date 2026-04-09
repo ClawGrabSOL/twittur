@@ -23,6 +23,7 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     content TEXT NOT NULL,
+    image_url TEXT DEFAULT NULL,
     parent_id INTEGER DEFAULT NULL,
     retwut_of_id INTEGER DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP

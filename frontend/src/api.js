@@ -20,8 +20,12 @@ export async function getFeed() {
   const res = await fetch(`${BASE}/twuts`, { headers: { ...authHeaders() } });
   return res.json();
 }
-export async function postTwut(content) {
-  const res = await fetch(`${BASE}/twuts`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify({ content }) });
+export async function postTwut(content, image_url) {
+  const res = await fetch(`${BASE}/twuts`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify({ content, image_url }) });
+  return res.json();
+}
+export async function adminWipe(secret) {
+  const res = await fetch(`${BASE}/twuts/admin/wipe`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ secret }) });
   return res.json();
 }
 export async function likeTwut(id) {

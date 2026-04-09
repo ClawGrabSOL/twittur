@@ -18,8 +18,19 @@ export default function UserProfile({ username, currentUser, onBack, onEditProfi
   useEffect(() => {
     setLoading(true);
     getUserProfile(username).then(data => {
-      setProfile(data.user || null);
-      setPosts(Array.isArray(data.twuts) ? data.twuts : []);
+      // backend returns flat fields + twuts array
+      if (data && data.username) {
+        setProfile({
+          username: data.username,
+          display_name: data.display_name,
+          bio: data.bio,
+          pfp_url: data.pfp_url,
+          created_at: data.created_at,
+          followers_count: data.follower_count || 0,
+          following_count: data.following_count || 0,
+        });
+        setPosts(Array.isArray(data.twuts) ? data.twuts : []);
+      }
       setLoading(false);
     });
     if (currentUser && !isOwn) {

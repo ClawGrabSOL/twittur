@@ -105,7 +105,12 @@ export default function PostCard({ post, currentUser, onNavigateProfile, onDelet
             <span className="post-handle">@{post.username}</span>
             <span className="post-time">{timeAgo(post.created_at)}</span>
           </div>
-          <div className="post-content">{renderContent(post.content)}</div>
+          {post.content && <div className="post-content">{renderContent(post.content)}</div>}
+          {post.image_url && (
+            <div style={{ marginBottom: 12 }}>
+              <img src={post.image_url} alt="" style={{ maxWidth: '100%', maxHeight: 400, borderRadius: 14, border: '1px solid var(--border)', display: 'block' }} onClick={e => { e.stopPropagation(); window.open(post.image_url, '_blank'); }} />
+            </div>
+          )}
           <div className="post-actions">
             {/* Reply */}
             <button className="action" onClick={toggleReplies}>
