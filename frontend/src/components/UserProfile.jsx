@@ -80,7 +80,10 @@ export default function UserProfile({ username, currentUser, onBack, onEditProfi
             ) : null}
           </div>
         </div>
-        <div className="profile-name">{displayName}</div>
+        <div className="profile-name">
+          {displayName}
+          {(profile.username === 'Z' || profile.username === 'z') && <span title="Official" style={{ marginLeft: 6, color: '#FFD700', fontSize: 20 }}>✦</span>}
+        </div>
         <div className="profile-handle">@{profile.username}</div>
         {profile.bio && <div className="profile-bio">{profile.bio}</div>}
         <div style={{ fontSize: 14, color: 'var(--muted)', marginTop: 10 }}>

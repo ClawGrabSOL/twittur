@@ -102,6 +102,7 @@ export default function PostCard({ post, currentUser, onNavigateProfile, onDelet
           <div className="post-header">
             <span className="post-name" onClick={e => { e.stopPropagation(); onNavigateProfile && onNavigateProfile(post.username); }}>
               {post.display_name || post.username}
+              {(post.username === 'Z' || post.username === 'z') && <span title="Official" style={{ marginLeft: 4, color: '#FFD700' }}>✦</span>}
             </span>
             <span className="post-handle">@{post.username}</span>
             <span className="post-time">{timeAgo(post.created_at)}</span>
