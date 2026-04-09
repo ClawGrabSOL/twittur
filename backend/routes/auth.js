@@ -10,7 +10,7 @@ router.post('/register', async (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
-    if (username.length < 2 || username.length > 20) return res.status(400).json({ error: 'Username must be 2-20 characters' });
+    if (username.length < 1 || username.length > 20) return res.status(400).json({ error: 'Username must be 1-20 characters' });
     if (!/^[a-zA-Z0-9_]+$/.test(username)) return res.status(400).json({ error: 'Letters, numbers, underscores only' });
     const existing = plain(prepare('SELECT id FROM users WHERE username = ?').get(username));
     if (existing) return res.status(409).json({ error: 'Username already taken' });

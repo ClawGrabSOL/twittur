@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getFeed, postTwut, uploadPfp } from '../api';
+import { getFeed, postTwut, uploadPfp, adminWipe } from '../api';
 import PostCard from './PostCard';
 
 export default function Feed({ currentUser, onNavigateProfile }) {
@@ -51,7 +51,21 @@ export default function Feed({ currentUser, onNavigateProfile }) {
 
   return (
     <>
-      <div className="feed-header">Home</div>
+      <div className="feed-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>Home</span>
+        {currentUser?.username === 'z' && (
+          <button
+            onClick={async () => {
+              if (!window.confirm('Wipe all posts?')) return;
+              await adminWipe('z-admin-wipe-2024');
+              setPosts([]);
+            }}
+            style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: 8, padding: '4px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}
+          >
+            🗑 Wipe all
+          </button>
+        )}
+      </div>
 
       {currentUser && (
         <div className="compose-area">
