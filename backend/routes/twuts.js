@@ -155,7 +155,8 @@ router.delete('/:id', authMiddleware, (req, res) => {
     const twutId = parseInt(req.params.id);
     const twut = plain(prepare('SELECT * FROM twuts WHERE id = ?').get(twutId));
     if (!twut) return res.status(404).json({ error: 'Post not found' });
-    if (twut.user_id !== req.user.userId) return res.status(403).json({ error: 'Not your post' });
+    const isAdmin = req.user.username === 'Z' || req.user.username === 'z';
+    if (twut.user_id !== req.user.userId && !isAdmin) return res.status(403).json({ error: 'Not your post' });
     prepare('DELETE FROM likes WHERE twut_id = ?').run(twutId);
     prepare('DELETE FROM retwuts WHERE twut_id = ?').run(twutId);
     prepare('DELETE FROM bookmarks WHERE twut_id = ?').run(twutId);

@@ -40,6 +40,7 @@ export default function PostCard({ post, currentUser, onNavigateProfile, onDelet
   const [replyText, setReplyText] = useState('');
   const [loadingReplies, setLoadingReplies] = useState(false);
 
+  const isAdmin = currentUser && (currentUser.username === 'Z' || currentUser.username === 'z');
   const isOwn = currentUser && (currentUser.username === post.username || currentUser.userId == post.user_id);
 
   async function handleLike(e) {
@@ -131,8 +132,8 @@ export default function PostCard({ post, currentUser, onNavigateProfile, onDelet
             <button className={`action${bookmarked ? ' bookmarked' : ''}`} onClick={handleBookmark}>
               <svg viewBox="0 0 24 24" fill={bookmarked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
             </button>
-            {/* Delete */}
-            {isOwn && (
+            {/* Delete — own post or admin Z */}
+            {(isOwn || isAdmin) && (
               <button className="action delete-btn" onClick={handleDelete}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
               </button>
